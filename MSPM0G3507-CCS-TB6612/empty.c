@@ -35,19 +35,39 @@
 #include "board.h"
 #include "motor.h"
 int Get_Encoder_countA,encoderA_cnt,Get_Encoder_countB,encoderB_cnt,PWMA,PWMB;
+static int debug_counter = 0;  // Counter for periodic detailed debug output
+
 int main(void)
 {
     SYSCFG_DL_init();
-    DL_Timer_startCounter(PWM_0_INST);//¿ªÆôPWMÊä³ö
-    NVIC_ClearPendingIRQ(UART_0_INST_INT_IRQN);//Çå³þÖÐ¶Ï±êÖ¾Î»
+    DL_Timer_startCounter(PWM_0_INST);//å¯åŠ¨PWMå®šæ—¶å™¨
+    NVIC_ClearPendingIRQ(UART_0_INST_INT_IRQN);//æ¸…é™¤ä¸­æ–­æ ‡å¿—ä½
     NVIC_ClearPendingIRQ(GPIO_MULTIPLE_GPIOA_INT_IRQN);
     NVIC_ClearPendingIRQ(TIMER_0_INST_INT_IRQN);
-    //Ê¹ÄÜ´®¿ÚÖÐ¶Ï
-    NVIC_EnableIRQ(UART_0_INST_INT_IRQN);//¿ªÆôÖÐ¶Ï
+    //ä½¿èƒ½ä¸²å£ä¸­æ–­
+    NVIC_EnableIRQ(UART_0_INST_INT_IRQN);//ä¸²å£ä¸­æ–­
     NVIC_EnableIRQ(GPIO_MULTIPLE_GPIOA_INT_IRQN);
     NVIC_EnableIRQ(TIMER_0_INST_INT_IRQN);
+    
+    printf("Motor Debug System Initialized\n\r");
+    printf("Enhanced debugging enabled with separate PID control\n\r");
+    
     while (1) {
+        // Basic encoder output (original functionality)
         printf("%d %d\n\r",encoderA_cnt,encoderB_cnt);
+        
+        // Enhanced debugging every 50 iterations (~1 second at typical loop speed)
+        debug_counter++;
+        if(debug_counter >= 50) {
+            Motor_Debug_Print();
+            debug_counter = 0;
+            
+            // Example: Automatically tune Motor B if there's significant difference
+            if(abs(encoderA_cnt - encoderB_cnt) > 5) {
+                printf("WARNING: Large encoder difference detected!\n\r");
+                printf("Consider calibrating motors for better straight-line performance\n\r");
+            }
+        }
     }
 }
 
@@ -62,7 +82,7 @@ void TIMER_0_INST_IRQHandler(void)
             encoderB_cnt = Get_Encoder_countB;
             Get_Encoder_countA = 0;
             Get_Encoder_countB = 0;
-            LED_Flash(100);//LED1ÉÁË¸
+            LED_Flash(100);//LED1ï¿½ï¿½Ë¸
             PWMA = Velocity_A(8,encoderA_cnt);
             PWMB = Velocity_B(8,encoderB_cnt);
             Set_PWM(PWMA,PWMB);

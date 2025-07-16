@@ -1,68 +1,77 @@
 #include "motor.h"
-float Velcity_Kp=1.00,  Velcity_Ki=0.5,  Velcity_Kd; //Ïà¹ØËÙ¶ÈPID²ÎÊı
+
+// Separate PID parameters for each motor
+PID_Params_t Motor_A_PID = {1.00, 0.5, 0.0}; // Initial values same as original
+PID_Params_t Motor_B_PID = {1.00, 0.5, 0.0}; // Can be tuned independently
+
+// Debug variables to store last values
+extern int Get_Encoder_countA, encoderA_cnt, Get_Encoder_countB, encoderB_cnt, PWMA, PWMB;
+
+// Legacy global variables maintained for compatibility
+float Velcity_Kp=1.00,  Velcity_Ki=0.5,  Velcity_Kd; //ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½PIDï¿½ï¿½ï¿½ï¿½
 /***********************************************
-¹«Ë¾£ºÂÖÈ¤¿Æ¼¼£¨¶«İ¸£©ÓĞÏŞ¹«Ë¾
-Æ·ÅÆ£ºWHEELTEC
-¹ÙÍø£ºwheeltec.net
-ÌÔ±¦µêÆÌ£ºshop114407458.taobao.com 
-ËÙÂôÍ¨: https://minibalance.aliexpress.com/store/4455017
-°æ±¾£ºV1.0
-ĞŞ¸ÄÊ±¼ä£º2024-07-019
+ï¿½ï¿½Ë¾ï¿½ï¿½ï¿½ï¿½È¤ï¿½Æ¼ï¿½ï¿½ï¿½ï¿½ï¿½İ¸ï¿½ï¿½ï¿½ï¿½ï¿½Ş¹ï¿½Ë¾
+Æ·ï¿½Æ£ï¿½WHEELTEC
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½wheeltec.net
+ï¿½Ô±ï¿½ï¿½ï¿½ï¿½Ì£ï¿½shop114407458.taobao.com 
+ï¿½ï¿½ï¿½ï¿½Í¨: https://minibalance.aliexpress.com/store/4455017
+ï¿½æ±¾ï¿½ï¿½V1.0
+ï¿½Ş¸ï¿½Ê±ï¿½ä£º2024-07-019
 
 Brand: WHEELTEC
 Website: wheeltec.net
 Taobao shop: shop114407458.taobao.com 
 Aliexpress: https://minibalance.aliexpress.com/store/4455017
 Version: V1.0
-Update£º2024-07-019
+Updateï¿½ï¿½2024-07-019
 
 All rights reserved
 ***********************************************/
 /***************************************************************************
-º¯Êı¹¦ÄÜ£ºµç»úµÄPID±Õ»·¿ØÖÆ
-Èë¿Ú²ÎÊı£º×óÓÒµç»úµÄ±àÂëÆ÷Öµ
-·µ»ØÖµ  £ºµç»úµÄPWM
+å‡½æ•°åŠŸèƒ½ï¼šç”µæœºPIDæ­»å¾ªç¯èµ‹å€¼
+å…¥å£å‚æ•°ï¼šç›®æ ‡é€Ÿåº¦ï¼Œå½“å‰è½¦è½®çš„ç¼–ç å™¨å€¼
+è¿”å›  å€¼ï¼šç”µæœºPWM
 ***************************************************************************/
 int Velocity_A(int TargetVelocity, int CurrentVelocity)
 {  
-    int Bias;  //¶¨ÒåÏà¹Ø±äÁ¿
-		static int ControlVelocityA, Last_biasA; //¾²Ì¬±äÁ¿£¬º¯Êıµ÷ÓÃ½áÊøºóÆäÖµÒÀÈ»´æÔÚ
+    int Bias;  //å®šä¹‰ç›¸å…³å˜é‡
+		static int ControlVelocityA, Last_biasA; //é™æ€å˜é‡ï¼Œå‡½æ•°è°ƒç”¨ç»“æŸåå…¶å€¼ç„¶å­˜åœ¨
 		
-		Bias=TargetVelocity-CurrentVelocity; //ÇóËÙ¶ÈÆ«²î
+		Bias=TargetVelocity-CurrentVelocity; //æ±‚é€Ÿåº¦åå·®
 		
-		ControlVelocityA+=Velcity_Ki*(Bias-Last_biasA)+Velcity_Kp*Bias;  //ÔöÁ¿Ê½PI¿ØÖÆÆ÷
-                                                                   //Velcity_Kp*(Bias-Last_bias) ×÷ÓÃÎªÏŞÖÆ¼ÓËÙ¶È
-	                                                                 //Velcity_Ki*Bias             ËÙ¶È¿ØÖÆÖµÓÉBias²»¶Ï»ı·ÖµÃµ½ Æ«²îÔ½´ó¼ÓËÙ¶ÈÔ½´ó
+		ControlVelocityA+=Motor_A_PID.Ki*(Bias-Last_biasA)+Motor_A_PID.Kp*Bias;  //å¢é‡å¼PIæ§åˆ¶å™¨
+                                                                   //Motor_A_PID.Kp*(Bias-Last_bias) ä½œç”¨ä¸ºé™åˆ¶åŠ é€Ÿåº¦
+	                                                                 //Motor_A_PID.Ki*Bias             é€Ÿåº¦æ§åˆ¶å€¼ç”±Biasä¸æ–­ç§¯åˆ†å¾—åˆ° åå·®è¶Šå¤§é€Ÿåº¦è¶Šå¿«
 		Last_biasA=Bias;	
 	    if(ControlVelocityA>3600) ControlVelocityA=3600;
 	    else if(ControlVelocityA<-3600) ControlVelocityA=-3600;
-		return ControlVelocityA; //·µ»ØËÙ¶È¿ØÖÆÖµ
+		return ControlVelocityA; //è¿”å›é€Ÿåº¦æ§åˆ¶å€¼
 }
 
 /***************************************************************************
-º¯Êı¹¦ÄÜ£ºµç»úµÄPID±Õ»·¿ØÖÆ
-Èë¿Ú²ÎÊı£º×óÓÒµç»úµÄ±àÂëÆ÷Öµ
-·µ»ØÖµ  £ºµç»úµÄPWM
+å‡½æ•°åŠŸèƒ½ï¼šç”µæœºPIDæ­»å¾ªç¯èµ‹å€¼
+å…¥å£å‚æ•°ï¼šç›®æ ‡é€Ÿåº¦ï¼Œå½“å‰è½¦è½®çš„ç¼–ç å™¨å€¼
+è¿”å›  å€¼ï¼šç”µæœºPWM
 ***************************************************************************/
 int Velocity_B(int TargetVelocity, int CurrentVelocity)
 {  
-    int Bias;  //¶¨ÒåÏà¹Ø±äÁ¿
-		static int ControlVelocityB, Last_biasB; //¾²Ì¬±äÁ¿£¬º¯Êıµ÷ÓÃ½áÊøºóÆäÖµÒÀÈ»´æÔÚ
+    int Bias;  //å®šä¹‰ç›¸å…³å˜é‡
+		static int ControlVelocityB, Last_biasB; //é™æ€å˜é‡ï¼Œå‡½æ•°è°ƒç”¨ç»“æŸåå…¶å€¼ç„¶å­˜åœ¨
 		
-		Bias=TargetVelocity-CurrentVelocity; //ÇóËÙ¶ÈÆ«²î
+		Bias=TargetVelocity-CurrentVelocity; //æ±‚é€Ÿåº¦åå·®
 		
-		ControlVelocityB+=Velcity_Ki*(Bias-Last_biasB)+Velcity_Kp*Bias;  //ÔöÁ¿Ê½PI¿ØÖÆÆ÷
-                                                                   //Velcity_Kp*(Bias-Last_bias) ×÷ÓÃÎªÏŞÖÆ¼ÓËÙ¶È
-	                                                                 //Velcity_Ki*Bias             ËÙ¶È¿ØÖÆÖµÓÉBias²»¶Ï»ı·ÖµÃµ½ Æ«²îÔ½´ó¼ÓËÙ¶ÈÔ½´ó
+		ControlVelocityB+=Motor_B_PID.Ki*(Bias-Last_biasB)+Motor_B_PID.Kp*Bias;  //å¢é‡å¼PIæ§åˆ¶å™¨
+                                                                   //Motor_B_PID.Kp*(Bias-Last_bias) ä½œç”¨ä¸ºé™åˆ¶åŠ é€Ÿåº¦
+	                                                                 //Motor_B_PID.Ki*Bias             é€Ÿåº¦æ§åˆ¶å€¼ç”±Biasä¸æ–­ç§¯åˆ†å¾—åˆ° åå·®è¶Šå¤§é€Ÿåº¦è¶Šå¿«
 		Last_biasB=Bias;	
 	    if(ControlVelocityB>3600) ControlVelocityB=3600;
 	    else if(ControlVelocityB<-3600) ControlVelocityB=-3600;
-		return ControlVelocityB; //·µ»ØËÙ¶È¿ØÖÆÖµ
+		return ControlVelocityB; //è¿”å›é€Ÿåº¦æ§åˆ¶å€¼
 }
 
 void Set_PWM(int pwma,int pwmb)
 {
-	//ÔÚÊ¹ÓÃÎÒË¾µÄD153CÇı¶¯Ä£¿éµÄÊ±ºò£¬PA12½ÓAIN2¡¢PA13½âAIN1,PB16½ÓBIN2¡¢PB0½Ó×ÅBIN1
+	//ä½¿ç”¨æ­£ç‚¹åŸå­D153Cç”µæœºæ¨¡å—æ—¶ï¼šPA12æ˜¯AIN2ï¼ŒPA13æ˜¯AIN1,PB16æ˜¯BIN2ï¼ŒPB0æ˜¯BIN1
 	if(pwma>0)
 	{
 		DL_GPIO_setPins(AIN1_PORT,AIN1_PIN_12_PIN);
@@ -87,8 +96,64 @@ void Set_PWM(int pwma,int pwmb)
 		DL_GPIO_clearPins(BIN1_PORT,BIN1_Pin_Bin1_PIN);
 		DL_Timer_setCaptureCompareValue(PWM_0_INST,ABS(pwmb),GPIO_PWM_0_C1_IDX);
 	}		
-
 }
 
+/***************************************************************************
+å‡½æ•°åŠŸèƒ½ï¼šç”µæœºè°ƒè¯•ä¿¡æ¯æ‰“å°
+å…¥å£å‚æ•°ï¼šæ— 
+è¿”å›  å€¼ï¼šæ— 
+è¯´æ˜ï¼šè¾“å‡ºç¼–ç å™¨å€¼ã€PWMå€¼å’ŒPIDå‚æ•°ï¼Œç”¨äºå®æ—¶è°ƒè¯•
+***************************************************************************/
+void Motor_Debug_Print(void)
+{
+    printf("Motor Debug Info:\n\r");
+    printf("EncoderA: %d, EncoderB: %d\n\r", encoderA_cnt, encoderB_cnt);
+    printf("PWMA: %d, PWMB: %d\n\r", PWMA, PWMB);
+    printf("Motor_A PID: Kp=%.2f, Ki=%.2f, Kd=%.2f\n\r", 
+           Motor_A_PID.Kp, Motor_A_PID.Ki, Motor_A_PID.Kd);
+    printf("Motor_B PID: Kp=%.2f, Ki=%.2f, Kd=%.2f\n\r", 
+           Motor_B_PID.Kp, Motor_B_PID.Ki, Motor_B_PID.Kd);
+    printf("====================\n\r");
+}
 
+/***************************************************************************
+å‡½æ•°åŠŸèƒ½ï¼šç”µæœºAæ ¡å‡†
+å…¥å£å‚æ•°ï¼škp, ki, kd - æ–°çš„PIDå‚æ•°
+è¿”å›  å€¼ï¼šæ— 
+è¯´æ˜ï¼šè¿è¡Œæ—¶è°ƒæ•´ç”µæœºAçš„PIDå‚æ•°
+***************************************************************************/
+void Motor_Calibrate_A(float kp, float ki, float kd)
+{
+    Motor_A_PID.Kp = kp;
+    Motor_A_PID.Ki = ki;
+    Motor_A_PID.Kd = kd;
+    printf("Motor A calibrated: Kp=%.2f, Ki=%.2f, Kd=%.2f\n\r", kp, ki, kd);
+}
 
+/***************************************************************************
+å‡½æ•°åŠŸèƒ½ï¼šç”µæœºBæ ¡å‡†
+å…¥å£å‚æ•°ï¼škp, ki, kd - æ–°çš„PIDå‚æ•°
+è¿”å›  å€¼ï¼šæ— 
+è¯´æ˜ï¼šè¿è¡Œæ—¶è°ƒæ•´ç”µæœºBçš„PIDå‚æ•°
+***************************************************************************/
+void Motor_Calibrate_B(float kp, float ki, float kd)
+{
+    Motor_B_PID.Kp = kp;
+    Motor_B_PID.Ki = ki;
+    Motor_B_PID.Kd = kd;
+    printf("Motor B calibrated: Kp=%.2f, Ki=%.2f, Kd=%.2f\n\r", kp, ki, kd);
+}
+
+/***************************************************************************
+å‡½æ•°åŠŸèƒ½ï¼šè·å–ç”µæœºè°ƒè¯•ä¿¡æ¯
+å…¥å£å‚æ•°ï¼šæŒ‡å‘ç¼–ç å™¨å’ŒPWMå€¼çš„æŒ‡é’ˆ
+è¿”å›  å€¼ï¼šæ— 
+è¯´æ˜ï¼šé€šè¿‡æŒ‡é’ˆè¿”å›å½“å‰çš„ç¼–ç å™¨å€¼å’ŒPWMå€¼ï¼Œä¾¿äºå…¶ä»–æ¨¡å—è°ƒç”¨
+***************************************************************************/
+void Motor_Get_Debug_Info(int *encoderA, int *encoderB, int *pwmA, int *pwmB)
+{
+    if(encoderA != NULL) *encoderA = encoderA_cnt;
+    if(encoderB != NULL) *encoderB = encoderB_cnt;
+    if(pwmA != NULL) *pwmA = PWMA;
+    if(pwmB != NULL) *pwmB = PWMB;
+}
