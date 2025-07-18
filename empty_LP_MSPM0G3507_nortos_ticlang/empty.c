@@ -21,9 +21,16 @@ int main(void)
     Move_Forward_20cm();
     delay_ms(5000);
     
+    // 输出完成信息
+    uart0_send_string("20cm straight line movement completed!\r\n");
+    uart0_send_string("System entering waiting state...\r\n");
+    
+    // 停止所有电机运动
+    Stop_Motors();
+    
+    // 进入无限循环等待状态，保持系统运行但不执行动作
     while(1)
     {
-        Move_Forward_Distance_Straight(20.0f);
-        delay_ms(5000);
+        delay_ms(1000);  // 1秒延时，保持系统活跃状态
     }
 }
