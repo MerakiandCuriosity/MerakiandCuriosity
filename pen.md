@@ -1021,53 +1021,69 @@ void TIM2_IRQHandler(void)
 		
 		static int32_t mode = 0;
 		
-		/////////////////////////////// Èý½ÇÐÎ»æÖÆ  Ê¹ÓÃ´ò¿ª´Ë²¿·Ö×¢ÊÍºó,ÔÙ×¢ÊÍÆäËû²¿·Ö ////////////////////////////
-		static int interp_step = 0; // ²åÖµ²½Êý¼ÆÊýÆ÷
+		/////////////////////////////// 三角形绘制优化版本 ////////////////////////////
+		static int interp_step = 0; // 插值步数计数器
 		
-		const int cnt = 10;
+		// 增加采样点数量以提高精度
+		const int cnt = 30; // 从原来的10增加到30，提高线性插值精度
 		
-		if (interp_step == 0) { // ½öÔÚ²åÖµ¿ªÊ¼Ê±¸üÐÂÄ¿±ê½Ç¶È
-			if (mode <= 0) {
-				target_base_angle = base_x(ts_dis, 0);
-				target_arm_angle = base_y(ts_dis, 0);
-			} else if (mode == 30) {
-				target_base_angle = base_x(ts_dis, 0.0);
-				target_arm_angle = base_y(ts_dis, 0.05);
-			} else if (mode == 30*2) {
-				target_base_angle = base_x(ts_dis, -0.05);
-				target_arm_angle = base_y(ts_dis, 0.0);
-			} else if (mode == 30*3) {
-				target_base_angle = base_x(ts_dis, 0.05);
-				target_arm_angle = base_y(ts_dis, 0.0);
-				mode = 0; // ÖØÖÃmodeÒÔÑ­»·»æÖÆÈý½ÇÐÎ
-			}
-
-			// ¼ÆËã²åÖµ²½³¤
-			step_base = (target_base_angle - last_base_angle) / cnt;
-			step_arm = (target_arm_angle - last_arm_angle) / cnt;
+		// 定义标准三角形的三个顶点坐标
+		typedef struct {
+			float x, y;
+		} Point;
+		
+		// 优化的三角形顶点 - 形成等边三角形
+		static const Point triangle_vertices[4] = {
+			{0.0f, 0.06f},      // 顶点（尖锐的上顶点）
+			{-0.052f, -0.03f},  // 左下顶点  
+			{0.052f, -0.03f},   // 右下顶点
+			{0.0f, 0.06f}       // 回到起点形成闭合路径
+		};
+		
+		static int current_vertex = 0; // 当前目标顶点索引
+		
+		if (interp_step == 0) { // 仅在插值开始时更新目标角度
+			// 获取当前目标顶点
+			Point target_point = triangle_vertices[current_vertex];
+			
+			// 计算目标角度
+			target_base_angle = base_x(ts_dis, target_point.x);
+			target_arm_angle = base_y(ts_dis, target_point.y);
+			
+			// 计算插值步长 - 确保线性过渡
+			step_base = (target_base_angle - last_base_angle) / (float)cnt;
+			step_arm = (target_arm_angle - last_arm_angle) / (float)cnt;
+			
+			// 更新上一次角度
 			last_base_angle = target_base_angle;
 			last_arm_angle = target_arm_angle;
 		}
 
-		// ²åÖµ
-		real_arm_angle = real_arm_angle + step_arm ;
+		// 精确线性插值 - 避免圆弧过渡
+		real_arm_angle = real_arm_angle + step_arm;
 		real_base_angle = real_base_angle + step_base;
 
-		// ½Ç¶È×ª»»ÎªPWM
+		// 角度转换为PWM
 		int pwmA = angle_to_pwm_180(real_arm_angle);
 		int pwmB = angle_to_pwm_270(real_base_angle);
 
-		// Êä³öµ½¶æ»ú
+		// 输出到舵机
 		TIM4->CCR3 = pwmB;
 		TIM4->CCR4 = pwmA;
 
-		// ¸üÐÂ²åÖµ²½ÊýºÍmode
+		// 更新插值步数
 		interp_step++;
-		if (interp_step >= cnt) { // ²åÖµÍê³É£¬ÇÐ»»µ½ÏÂÒ»¸öÄ¿±êµã
+		if (interp_step >= cnt) { // 插值完成，切换到下一个目标点
 			interp_step = 0;
-			mode++;
+			current_vertex++;
+			
+			// 循环绘制三角形
+			if (current_vertex >= 4) {
+				current_vertex = 0;
+				mode++; // 可用于添加暂停或其他控制逻辑
+			}
 		}
-		/////////////////////////////// Èý½ÇÐÎ END ////////////////////////////
+		/////////////////////////////// 三角形绘制优化版本 END ////////////////////////////
 		
 		/////////////////////////////// Ô²ÐÎ»æÖÆ  Ê¹ÓÃ´ò¿ª´Ë²¿·Ö×¢ÊÍºó,ÔÙ×¢ÊÍÆäËû²¿·Ö  //////////////////////////
 //		static float theta = 0.0f; // Ô²µÄ²ÎÊý»¯½Ç¶È£¨»¡¶È£©
