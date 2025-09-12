@@ -1,0 +1,12 @@
+#ifndef __ADC_H
+#define __ADC_H
+
+#include "stm32f10x.h"
+
+#define Battery_Ch 1
+
+void Adc_Init(void);
+u16 Get_Adc(u8 ch);
+int Get_battery_volt(void);
+
+#endif /* __ADC_H */
